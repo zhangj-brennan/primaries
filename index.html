@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="state_abbr.js"></script>
+    <title>just for fun</title>
+    <style>
+        @font-face {
+      font-family: "Benton";
+      src: url("Benton Sans/Benton Sans Book.otf");
+    }
+    @font-face {
+      font-family: "BentonStrong";
+      src: url("Benton Sans/Benton Sans Bold.otf");
+    }
+    body{
+        font-family: "Benton";font-size:24px;
+                padding:10px;
+        font-weight:800;
+
+    }
+    svg text { font-family: "Benton";font-size:14px;}
+    button { margin-right: 10px; }
+    .section{
+        font-family: "Benton";
+        margin:10px;
+        padding:10px;
+    }
+    #title{
+        font-size:24px;
+        border:none;
+    }
+    #main{
+        width:60%;
+        margin-left:auto;
+        margin-right:auto;
+    }
+.state text {
+    font-family: "Benton";  
+    text-anchor: middle;
+    font-weight:800;
+    fill:#fff;
+    letter-spacing:1px;
+}
+.chart{
+    font-size:12px;
+}
+#text{
+    height:60px;
+}
+ .highlight{
+    color:red;
+ }  
+  </style>
+</head>
+<body>
+    <!-- Your content will go here -->
+    <div id="main">
+<div class="section" id="title">
+    Today is ...
+</div>
+<!-- <div class="chart" id="timeline">distribution of primaries</div> -->
+
+<div class="section" id="text">
+    You have __ many days until the primary in ___
+</div>
+<div class="chart" id="map"></div>
+
+<div class="chart" id="timeline"></div>
+
+
+<script id="grid" type="text/plain">
+                              ME
+               WI          VT NH
+WA ID MT ND MN IL MI    NY MA
+OR NV WY SD IA IN OH PA NJ CT RI
+CA UT CO NE MO KY WV VA MD DE
+   AZ NM KS AR TN NC SC
+         OK LA MS AL GA
+HI AK    TX             FL
+</script>
+
+
+    <script>
+
+//charts:
+//current
+//average age
+//average tenure
+//longest serving
+//think of a wrap up
+
+        const red = "#ED1C24"
+        const blue = "#3995B2"
+        const yellow = "#FFCF01"
+        const grey = "#B0B0B0"
+
+Promise.all([d3.csv("midterm election 2026 general - primary_date.csv")])
+.then(function(data){
+            
+    const today = new Date();
+
+    const weekday = today.toLocaleDateString('en-EN', { weekday: 'long' });
+    const date = today.getDate();
+    const month = today.getMonth() + 1;
+    const year = today.getFullYear();
+    const longMonth = today.toLocaleString('default', { month: 'long' });
+
+    d3.select("#title").html("Today is "+weekday+" "+longMonth+" "+date+", "+year)
+
+    var primaryDates = data[0]
+    var primaryDictionary={}
+    for(var i in primaryDates){
+        primaryDictionary[primaryDates[i]["State"]]=primaryDates[i]["Primary Date"]
+    }
+
+    var grouped = Object.groupBy(primaryDates, function(d){return d["Primary Date"]})
+    drawTimeline(grouped)
+   // console.log(grouped)
+    //make date objects for each state
+    //make a calendar timeline
+    //make math subtraction
+    drawGrid(primaryDictionary,primaryDates)
+    drawDays("TX",primaryDictionary,primaryDates)
+    d3.select("#TX_rect").style("stroke","black").style("stroke-width",2)
+})
+function drawLegend(){
+    var today = new Date()
+    
+}
+
+function drawTimeline(grouped){
+    var p = 20
+    var width = 800
+    var height = 200
+   var svg = d3.select("#timeline").append("svg")
+        .attr("width",width)
+        .attr("height",height)
+
+    var wScale = d3.scaleLinear().domain([new Date(),new Date("9/30/2026")])
+    .range([0,width-p*4])
+    var wAxis = d3.axisBottom().scale(wScale)
+    .ticks(5).tickFormat(function(d){return new Date(d).toLocaleDateString()})
+    .tickValues([new Date(),new Date("4/1/2026"),new Date("6/1/2026")
+        ,new Date("8/1/2026"),new Date("10/1/2026")
+    ])
+    var timeline = svg.append("g").attr("transform","translate(40,0)")
+    timeline.append("g").call(wAxis).attr("transform","translate(0,180)")
+
+    for(var g in grouped){
+        console.log(g)
+        timeline.selectAll("._"+g.split("/").join("_"))
+            .data(grouped[g])
+            .join("rect")
+            .attr("class","dates")
+            .attr("width",5)
+            .attr("height",8)
+            .attr("fill",function(d){
+                console.log(d)
+                        return "red"
+            })
+            .attr("y",function(d,i){return height-i*10-p})
+            .attr("x",function(d,i){
+              console.log(g)
+                return wScale(new Date(g))
+            })
+        }
+    }
+    
+
+function drawGrid(primaryDictionary,primaryDates){
+    var states = [],
+    selectedStates = ["MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT"];
+
+    d3.select("#grid").text().split("\n").forEach(function(line, i) {
+    var re = /\w+/g, m;
+    while (m = re.exec(line)) states.push({
+    name: m[0],
+    selected: selectedStates.indexOf(m[0]) >= 0,
+    x: m.index / 3,
+    y: i
+    });
+    });
+
+    var width = 500;
+    var height = 350;
+    var svg = d3.select("#map").append("svg").attr("width",width).attr("height",height)
+
+    var gridWidth = d3.max(states, function(d) { return d.x; }) + 1,
+    gridHeight = d3.max(states, function(d) { return d.y; }) + 1,
+    cellSize = 40;
+
+
+    var daysColor = d3.scaleLinear().domain([20,200]).range([red,grey])
+
+    var state = svg.append("g")
+    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+    .selectAll(".state")
+    .data(states)
+    .enter().append("g")
+    .attr("cursor","pointer")
+    .attr("id",function(d){return d.name})
+    .attr("class", function(d) { return "state" + (d.selected ? " state--selected" : ""); })
+    .attr("transform", function(d) { return "translate(" + (d.x - gridWidth / 2) * cellSize + "," + (d.y - gridHeight / 2) * cellSize + ")"; });
+    
+    state.append("rect")
+    .attr("x", -cellSize / 2+2)
+    .attr("y", -cellSize / 2+2)
+    .attr("width", cellSize - 4)
+    .attr("height", cellSize - 4)
+    .attr("days",function(d){
+        return calculateDays(d.name,primaryDictionary,primaryDates)[1]
+    })
+    .attr("fill",function(d){
+        return daysColor(d3.select(this).attr("days"))
+    })
+    .attr("id",function(d){return d.name+"_rect"})
+    .on("mouseover",function(e,d,i){
+            d3.selectAll("rect").style("stroke","black").style("stroke-width",0)
+
+    //d3.selectAll('rect').style("fill","black")
+        d3.select(this).style("stroke","black").style("stroke-width",2)
+        drawDays(d.name,primaryDictionary,primaryDates)
+    })
+    .on("mouseout",function(e,d,i){
+        d3.select(this).style("stroke-width",0)
+                d3.select("#text").html("")
+       //d3.select(this).style("fill","black")
+    })
+
+    state.append("text")
+    .attr("dy", ".35em")
+    .text(function(d) { 
+        return d.name; })
+    .attr("id",function(d){return d.name+"_text"})
+    .on("mouseover",function(e,d,i){
+      //  console.log(d.name)
+       drawDays(d.name,primaryDictionary,primaryDates)
+            d3.selectAll("rect").style("stroke","black").style("stroke-width",0)
+
+        var rectId = d3.select(this).attr("id").replace("_text","_rect")
+        d3.select("#"+rectId).style("stroke","black").style("stroke-width",2)
+    })
+      .on("mouseout",function(e,d,i){
+        var rectId = d3.select(this).attr("id").replace("_text","_rect")
+        d3.select("#"+rectId).style("stroke","black").style("stroke-width",0)    
+        d3.select("#text").html("")
+
+    })
+}
+
+function drawDays(state,primaryDictionary,primaryDates){
+    var newText = calculateDays(state,primaryDictionary,primaryDates)[0]
+    d3.select("#text").html(newText)
+}
+
+function calculateDays(state,primaryDictionary,primaryDates){
+    var svg = d3.select("#timeline").append("svg")
+    .attr("width",80000).attr("height",200)
+    var minDate = d3.min([new Date(), new Date("3/1/2026")])
+    var maxDate = d3.max(primaryDates,function(d){return new Date(d["Primary Date"])})
+    const oneDay = 1000 * 60 * 60 * 24;
+
+    var stateFullName = abbr_state[state]
+    var stateDate = new Date(primaryDictionary[stateFullName])
+    var today = new Date()
+    var days =Math.floor((stateDate-today)/oneDay)
+    //console.log(days, stateDate, stateFullName)
+
+    const weekday = stateDate.toLocaleDateString('en-EN', { weekday: 'long' });
+    const date = stateDate.getDate();
+    const month =stateDate.getMonth() + 1;
+    const year = stateDate.getFullYear();
+    const longMonth = stateDate.toLocaleString('default', { month: 'long' });
+
+    if(days>1){
+        var newText = "There are <span class=\"highlight\">"+days
+            +" days</span> until the primary in <span class=\"highlight\">"
+            + stateFullName+ "</span> on "
+            + weekday+" "+longMonth+" "+date+", "+year
+    }else if(days==1){
+         var newText = "There is <span class=\"highlight\">just "+days
+            +" day</span> until the primary in <span class=\"highlight\">"
+            + stateFullName+ "</span> on "
+            + weekday+" "+longMonth+" "+date+", "+year
+    }else if(days==0){
+         var newText = "The primary in <span class=\"highlight\">"
+            + stateFullName+ "</span> is today "
+            + weekday+" "+longMonth+" "+date+", "+year
+    }else{
+         var newText = "The primary in <span class=\"highlight\">"
+            + stateFullName+ "</span> was "+Math.abs(days)+" days ago, "
+            + weekday+" "+longMonth+" "+date+", "+year
+    }
+    return([newText,days])
+}
+
+</script>
+</body>
+</html>
