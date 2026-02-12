@@ -16,26 +16,22 @@
       src: url("Benton Sans/Benton Sans Bold.otf");
     }
     body{
-        font-family: "Benton";font-size:24px;
-                padding:10px;
-        font-weight:800;
+        font-family: "BentonStrong";
+        font-size:24px;
+        padding:10px;
 
     }
-    svg text { font-family: "Benton";font-size:14px;}
+    svg text { font-family: "BentonStrong";font-size:14px;}
     button { margin-right: 10px; }
     .section{
-        font-family: "Benton";
         margin:10px;
         padding:10px;
     }
     #title{
         font-size:24px;
-        border:none;
+        min-width: 400px;
     }
     #main{
-        width:60%;
-        margin-left:auto;
-        margin-right:auto;
     }
 .state text {
     font-family: "Benton";  
@@ -48,29 +44,48 @@
     font-size:12px;
 }
 #text{
-    height:60px;
+    height:90px;
+}
+#seats{
+ height:90px;
+    margin:auto;
 }
  .highlight{
     color:red;
  }  
+ .footnote{
+    font-size:9px;
+ }
+ #applet{
+    background-color:black;
+    padding:20px;
+color:white;
+     width:400px;
+    min-width: 400px;
+    margin:auto;
+    margin-top:20px;
+ }
   </style>
 </head>
 <body>
     <!-- Your content will go here -->
-    <div id="main">
+     <div id="applet">
 <div class="section" id="title">
     Today is ...
 </div>
 <!-- <div class="chart" id="timeline">distribution of primaries</div> -->
 
 <div class="section" id="text">
-    You have __ many days until the primary in ___
+</div>
+<div class="section" id="seats">
 </div>
 <div class="chart" id="map"></div>
 
-<div class="chart" id="timeline"></div>
+<div class="footnote">from: 
+https://www.ncsl.org/elections-and-campaigns/2026-state-primary-election-dates</div>
+</div>
 
-
+<!-- <div class="chart" id="timeline"></div> -->
 <script id="grid" type="text/plain">
                               ME
                WI          VT NH
@@ -97,9 +112,16 @@ HI AK    TX             FL
         const yellow = "#FFCF01"
         const grey = "#B0B0B0"
 
-Promise.all([d3.csv("midterm election 2026 general - primary_date.csv")])
+            const oneDay = 1000 * 60 * 60 * 24;
+
+
+Promise.all([d3.csv("midterm election 2026 general - primary_date.csv"),d3.csv("midterm election 2026 general - seats.csv")])
 .then(function(data){
-            
+
+    
+    const seatsData = data[1]
+
+    var stateSeatsDictionary = seatsDictionary(seatsData)
     const today = new Date();
 
     const weekday = today.toLocaleDateString('en-EN', { weekday: 'long' });
@@ -117,60 +139,160 @@ Promise.all([d3.csv("midterm election 2026 general - primary_date.csv")])
     }
 
     var grouped = Object.groupBy(primaryDates, function(d){return d["Primary Date"]})
-    drawTimeline(grouped)
+    getNextPrimary(grouped)
    // console.log(grouped)
     //make date objects for each state
     //make a calendar timeline
     //make math subtraction
-    drawGrid(primaryDictionary,primaryDates)
-    drawDays("TX",primaryDictionary,primaryDates)
+    drawGrid(primaryDictionary,primaryDates,grouped,stateSeatsDictionary)
+   // drawDays("TX",primaryDictionary,primaryDates)
     d3.select("#TX_rect").style("stroke","black").style("stroke-width",2)
+    d3.select("#NC_rect").style("stroke","black").style("stroke-width",2)
+    d3.select("#AR_rect").style("stroke","black").style("stroke-width",2)
 })
-function drawLegend(){
-    var today = new Date()
-    
+
+function seatsDictionary(seatsData){
+    var stateDict = {}
+    for(var s in seatsData){
+        stateDict[ state_abbr[seatsData[s].State]]=seatsData[s]
+    }
+    seatsData.reduce(function(a,currentItem){
+        //console.log(currentItem.State)
+        var stateAbbr = state_abbr[currentItem.State]
+        stateDict[stateAbbr]=currentItem
+       // return stateDict
+    })
+    return stateDict
 }
 
-function drawTimeline(grouped){
-    var p = 20
-    var width = 800
-    var height = 200
-   var svg = d3.select("#timeline").append("svg")
-        .attr("width",width)
-        .attr("height",height)
+function getNextPrimary(grouped){
+   // console.log(grouped)
 
-    var wScale = d3.scaleLinear().domain([new Date(),new Date("9/30/2026")])
-    .range([0,width-p*4])
-    var wAxis = d3.axisBottom().scale(wScale)
-    .ticks(5).tickFormat(function(d){return new Date(d).toLocaleDateString()})
-    .tickValues([new Date(),new Date("4/1/2026"),new Date("6/1/2026")
-        ,new Date("8/1/2026"),new Date("10/1/2026")
-    ])
-    var timeline = svg.append("g").attr("transform","translate(40,0)")
-    timeline.append("g").call(wAxis).attr("transform","translate(0,180)")
+    var todayFormatted = new Date().toLocaleString().split(",")[0]
+    grouped[todayFormatted]="today"
+  //  console.log(todayFormatted)
+    var dates = Object.keys(grouped)
+    var datesSorted =dates.sort(function(a,b){
+        return new Date(a)- new Date(b)
+    })
+  //  console.log(datesSorted)
+    var todayIndex = datesSorted.indexOf(todayFormatted)
+  //  console.log(todayIndex)
+    var nextPDate = datesSorted[todayIndex+1]
 
-    for(var g in grouped){
-        console.log(g)
-        timeline.selectAll("._"+g.split("/").join("_"))
-            .data(grouped[g])
-            .join("rect")
-            .attr("class","dates")
-            .attr("width",5)
-            .attr("height",8)
-            .attr("fill",function(d){
-                console.log(d)
-                        return "red"
-            })
-            .attr("y",function(d,i){return height-i*10-p})
-            .attr("x",function(d,i){
-              console.log(g)
-                return wScale(new Date(g))
-            })
+    var nextDateObject = new Date(nextPDate)
+    const nWeekday = nextDateObject.toLocaleDateString('en-EN', { weekday: 'long' });
+    const nDate = nextDateObject.getDate();
+    const nMonth = nextDateObject.getMonth() + 1;
+    const nYear = nextDateObject.getFullYear();
+    const nLongMonth = nextDateObject.toLocaleString('default', { month: 'long' });
+
+    var daysTill =Math.floor((nextDateObject-new Date())/oneDay)
+
+    var nextPStates = grouped[nextPDate]
+    if(nextPStates.length==1){
+        var nextText = "The next primary is on "+nextPDate+" in "+nextPStates[0].Stat
+    }else{
+        var statesString = ""
+        for(var s in nextPStates){
+            if(s ==nextPStates.length-1){
+                statesString+=" and "+ nextPStates[s].State
+            }else{
+                statesString+=" "+nextPStates[s].State+","
+            }
         }
-    }
-    
 
-function drawGrid(primaryDictionary,primaryDates){
+        var nextText = "The next primaries are in <span class=\"highlight\">"
+            +daysTill+" days</span> on "+nWeekday+" "+nLongMonth
+        +" "+nDate+" in<span class=\"highlight\">"+statesString+"</span>."
+    }
+    d3.select("#text").html(nextText)
+}
+
+function displaySeats(seatsData){
+
+    d3.select("#seats").html("")
+//    var table = d3.select("#seats")
+//     .append("table")//.attr("border","1")
+const columns = [
+    { key: "marker", label: seatsData.State },      // blank header
+    { key: "term",   label: "Term" },
+    { key: "open",   label: "Up in 2026" },
+    { key: "total",  label: "Out of " }
+  ];
+
+
+//   const thead = table.append("thead");
+//   const tbody = table.append("tbody");
+
+  // 2) Your data (rows)
+  const data = [
+    { marker: "House", term: seatsData["House Term"],   
+    open: seatsData["House Seats up in 2026"], 
+    total: seatsData["Total House Seats"] },
+    { marker: "Senate", 
+    term: seatsData["Senate Term"], 
+    open: seatsData["Senate Seats up in 2026"], 
+    total: seatsData["Total Senate Seats"]}
+  ];
+
+  if(seatsData["House Seats up in 2026"]==seatsData["Total House Seats"]){
+    var houseText = "In "+seatsData.State+", all "
+    +seatsData["House Seats up in 2026"]
+    +" House seats, and "
+  }else if(seatsData["House Seats up in 2026"]==0){
+    var houseText ="In "+seatsData.State+ " none of the "
+        +seatsData["Total House Seats"]
+        +", and"
+  }else{
+    var houseText = "In "+seatsData.State+", "
+     +seatsData["House Seats up in 2026"]
+    + " out of "+seatsData["Total House Seats"]
+     +" House seats, and "
+  }
+
+  if(seatsData["Senate Seats up in 2026"]==seatsData["Total Senate Seats"]){
+    var senateText = "all "
+    +seatsData["Senate Seats up in 2026"]
+    +" Senate seats are up in 2026."
+  }else if(seatsData["Senate Seats up in 2026"]==0){
+    var senateText = " none of the "
+        +seatsData["Total Senate Seats"]
+        +" Senate seats are up in 2026."
+  }
+  else{
+    var senateText = seatsData["Senate Seats up in 2026"]
+    + " out of "+seatsData["Total Senate Seats"]
+     +" Senate seats are up in 2026."
+  }
+
+
+
+
+  d3.select("#seats").html(houseText+senateText)
+
+//    thead.append("tr")
+//     .selectAll("th")
+//     .data(columns)
+//     .join("th")
+//       .text(d => d.label)
+//    //   .style("border", "1px solid #ccc")
+//       .style("padding", "6px 8px")
+//      // .style("text-align", d => (d.key === "open" || d.key === "total") ? "right" : "left");
+//     const rows = tbody.selectAll("tr")
+//     .data(data)
+//     .join("tr");
+//       rows.selectAll("td")
+//     .data(row => columns.map(c => ({ col: c, value: row[c.key] })))
+//     .join("td")
+//       .text(d => d.value)
+//      // .style("border", "1px solid #ddd")
+//       .style("padding", "6px 8px")
+
+
+}
+
+function drawGrid(primaryDictionary,primaryDates,grouped,seats){
     var states = [],
     selectedStates = ["MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT"];
 
@@ -184,13 +306,13 @@ function drawGrid(primaryDictionary,primaryDates){
     });
     });
 
-    var width = 500;
-    var height = 350;
+    var width = 420;
+    var height = 300;
     var svg = d3.select("#map").append("svg").attr("width",width).attr("height",height)
 
     var gridWidth = d3.max(states, function(d) { return d.x; }) + 1,
     gridHeight = d3.max(states, function(d) { return d.y; }) + 1,
-    cellSize = 40;
+    cellSize = 34;
 
 
     var daysColor = d3.scaleLinear().domain([20,200]).range([red,grey])
@@ -222,11 +344,15 @@ function drawGrid(primaryDictionary,primaryDates){
 
     //d3.selectAll('rect').style("fill","black")
         d3.select(this).style("stroke","black").style("stroke-width",2)
+      
+        displaySeats(seats[d.name])
         drawDays(d.name,primaryDictionary,primaryDates)
     })
     .on("mouseout",function(e,d,i){
         d3.select(this).style("stroke-width",0)
-                d3.select("#text").html("")
+            d3.select("#text").html("")
+            d3.select("#seats").html("")
+getNextPrimary(grouped)
        //d3.select(this).style("fill","black")
     })
 
@@ -238,7 +364,8 @@ function drawGrid(primaryDictionary,primaryDates){
     .on("mouseover",function(e,d,i){
       //  console.log(d.name)
        drawDays(d.name,primaryDictionary,primaryDates)
-            d3.selectAll("rect").style("stroke","black").style("stroke-width",0)
+        d3.selectAll("rect").style("stroke","black").style("stroke-width",0)
+        displaySeats(seats[d.name])
 
         var rectId = d3.select(this).attr("id").replace("_text","_rect")
         d3.select("#"+rectId).style("stroke","black").style("stroke-width",2)
@@ -247,7 +374,9 @@ function drawGrid(primaryDictionary,primaryDates){
         var rectId = d3.select(this).attr("id").replace("_text","_rect")
         d3.select("#"+rectId).style("stroke","black").style("stroke-width",0)    
         d3.select("#text").html("")
+            d3.select("#seats").html("")
 
+        getNextPrimary(grouped)
     })
 }
 
@@ -261,7 +390,6 @@ function calculateDays(state,primaryDictionary,primaryDates){
     .attr("width",80000).attr("height",200)
     var minDate = d3.min([new Date(), new Date("3/1/2026")])
     var maxDate = d3.max(primaryDates,function(d){return new Date(d["Primary Date"])})
-    const oneDay = 1000 * 60 * 60 * 24;
 
     var stateFullName = abbr_state[state]
     var stateDate = new Date(primaryDictionary[stateFullName])

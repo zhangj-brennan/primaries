@@ -1,24 +1,14 @@
 State,Candidate filing deadlines,Statute
-Alabama,"Open: N/A
-Close: Jan. 23, 2026, by 5 p.m.",Ala. Code § 17-13-5
-Alaska,"Open: N/A 
-Close: June 1, 2026, by 5 p.m.",Alaska Stat. § 15.25.040
-Arizona,"Open: March 7, 2026 
-Close: April 6, 2026, by 5 p.m.",Ariz. Rev. Stat. Ann. § 16-311
-Arkansas,"Open: Nov. 3, 2025, at 12 p.m. 
-Close: Nov. 11, 2025, by 12 p.m.",Ark. Stat. Ann. § 7-7-203
-California,"Open: Feb. 9, 2026 
-Close: March 6, 2026, by 5 p.m.",Cal. Elect. Code § 8020
-Colorado,"Open: Jan. 2, 2026 
-Close: March 18, 2026, by COB",Colo. Rev. Stat. § 1-4-801
-Connecticut,"Open: N/A 
-Close: June 9, 2026, by 4 p.m.",Conn. Gen. Stat. § 9-400
-Delaware,"Open: N/A 
-Close: July 14, 2026","Del. Code Ann. tit. 15, § 3101"
-Florida,"Open: April 20, 2026, for federal and state attorney office/June 8, 2026, for state office 
-Close: April 24, 2026, for federal and state attorney office /June 12, 2026, for state office",Fla. Stat. § 99.061
-Georgia,"Open: March 2, 2026, at 9 a.m. 
-Close: March 6, 2026, by 12:00 p.m.",Ga. Code § 21-2-153
+Alabama, Jan. 23, 2026, by 5 p.m.",Ala. Code § 17-13-5
+Alaska,June 1, 2026, by 5 p.m.",Alaska Stat. § 15.25.040
+Arizona,April 6, 2026, by 5 p.m.",Ariz. Rev. Stat. Ann. § 16-311
+Arkansas, Nov. 11, 2025, by 12 p.m.",Ark. Stat. Ann. § 7-7-203
+California, March 6, 2026, by 5 p.m.",Cal. Elect. Code § 8020
+Colorado,March 18, 2026, by COB",Colo. Rev. Stat. § 1-4-801
+Connecticut,June 9, 2026, by 4 p.m.",Conn. Gen. Stat. § 9-400
+Delaware,July 14, 2026","Del. Code Ann. tit. 15, § 3101"
+Florida,"April 24, 2026, for federal and state attorney office /June 12, 2026, for state office",Fla. Stat. § 99.061
+Georgia,March 6, 2026, by 12:00 p.m.",Ga. Code § 21-2-153
 Hawaii,"Open: Feb. 2, 2026 
 Close: June 2, 2026, by 4:30 p.m.","Hawaii Rev. Stat. §§ 12-2.5, 12-6"
 Idaho,"Open: Feb. 23, 2026, at 8 a.m. 
@@ -29,20 +19,15 @@ Indiana,"Open: Jan. 7, 2026
 Close: Feb. 6, 2026",Ind. Code § 3-8-2-4
 Iowa,"Open: Feb. 23, 2026 
 Close: March 13, 2026",Iowa Code § 43.11
-Kansas,"Open: N/A 
-Close: June 1, 2026, by 12 p.m.",Kan. Stat. Ann. § 25-205
+Kansas,June 1, 2026, by 12 p.m.",Kan. Stat. Ann. § 25-205
 Kentucky,"Open: Nov. 5, 2025 
 Close: Jan. 9, 2026, by 4 p.m.",Ky. Rev. Stat. § 118.165
 Louisiana,"Open: Feb. 11, 2026, for congressional office 
 Close: Feb. 13, 2026, by 4:30 p.m. for congressional office","La. Rev. Stat. Ann. §§ 18:467, 18:468"
-Maine,"Open: N/A 
-Close: March 15, 2026, by 5 p.m.","Me. Rev. Stat. Ann. tit. 21-A, § 335"
-Maryland,"Open: N/A 
-Close: Feb. 24, 2026, by 9 p.m.",Md. Elect. Code Ann. § 5-303
-Massachusetts,"Open: N/A 
-Close: May 26, 2026, for state legislature/June 2, 2026, for federal and statewide","Mass. Gen. Laws Ann. ch. 53, § 48"
-Michigan,"Open: N/A 
-Close: April 21, 2026, by 4 p.m.",Mich. Comp. Laws § 168.551
+Maine,March 15, 2026, by 5 p.m.","Me. Rev. Stat. Ann. tit. 21-A, § 335"
+Maryland,Feb. 24, 2026, by 9 p.m.",Md. Elect. Code Ann. § 5-303
+Massachusetts,May 26, 2026, for state legislature/June 2, 2026, for federal and statewide","Mass. Gen. Laws Ann. ch. 53, § 48"
+Michigan,April 21, 2026, by 4 p.m.",Mich. Comp. Laws § 168.551
 Minnesota,"Open: May 19, 2026 
 Close: June 2, 2026, at 5 p.m.",Minn. Stat. § 204B.09
 Mississippi,"Open: Dec. 1, 2025, for congressional office 
@@ -57,8 +42,7 @@ Nevada,"Open: March 2, 2026
 Close: March 13, 2026, by 5 p.m.",Nev. Rev. Stat. § 293.177
 New Hampshire,"Open: June 3, 2026 
 Close: June 12, 2026",N.H. Rev. Stat. Ann. § 655:14
-New Jersey,"Open: N/A 
-Close: March 23, 2026, by 4 p.m.",N.J. Rev. Stat. § 19:23-14
+New Jersey,March 23, 2026, by 4 p.m.",N.J. Rev. Stat. § 19:23-14
 New Mexico,"Open: Feb. 3, 2026, at 9 a.m. for statewide and congressional office/March 10, 2026, at 9 a.m. for all other offices 
 Close: Feb. 3, 2026, by 5 p.m. for statewide and congressional office / March 10, 2026, by 5 p.m. for all other offices",N.M. Stat. Ann. § 1-8-26
 New York,"Open: March 30, 2026 
@@ -67,8 +51,7 @@ North Carolina,"Open: Dec. 1, 2025, at 12 p.m.
 Close: Dec. 19, 2025, by 12 p.m.",N.C. Gen. Stat. § 163-106.2
 North Dakota,"Open: Jan. 2, 2026 
 Close: April 6, 2026, by 4 p.m.",N.D. Cent. Code § 16.1-12-04
-Ohio,"Open: N/A 
-Close: Feb. 4, 2026, by 4 p.m.",Ohio Rev. Code Ann. § 3513.05
+Ohio,Feb. 4, 2026, by 4 p.m.",Ohio Rev. Code Ann. § 3513.05
 Oklahoma,"Open: April 1, 2026, at 8 a.m. 
 Close: April 3, 2026, by 5 p.m.","Okla. Stat. tit. 26, § 5-110"
 Oregon,"Open: Sept. 11, 2025 
