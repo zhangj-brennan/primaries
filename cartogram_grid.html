@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Small Multiples State Tile Cartograms</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+  /* Optional fonts (keep if you have these files locally) */
+  @font-face { font-family: "Benton"; src: url("Benton Sans/Benton Sans Book.otf"); }
+  @font-face { font-family: "BentonStrong"; src: url("Benton Sans/Benton Sans Bold.otf"); }
+  @font-face { font-family: "BentonMedium"; src: url("Benton Sans/Benton Sans Medium.otf"); }
+
+  body{
+    margin: 0;
+    padding: 16px;
+    background: #fff;
+    color: #111;
+    font-family: "Benton", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .grid{
+    display: grid;
+    gap: 14px;
+  }
+
+  .card{
+    padding: 10px;
+    background: #fff;
+  }
+
+  .title{
+    font-family: "BentonStrong", system-ui, sans-serif;
+    font-size: 14px;
+    letter-spacing: .2px;
+    margin: 0 0 6px;
+  }
+
+  svg{
+    display: block;
+    width: 280px;
+    height: auto;
+  }
+
+  .state text{
+    text-anchor: middle;
+    font-family: "BentonMedium", system-ui, sans-serif;
+    font-size: 11px;
+    fill: #fff;
+    letter-spacing: 1px;
+    user-select: none;
+    pointer-events: none;
+  }
+  #title{
+    font-family: "BentonStrong";
+    font-size:24px;
+    padding:10px;
+    border-top:3px solid black;
+}
+#wrapper{width:900px;}
+.chartTitle{
+        font-family: "BentonStrong";
+}
+</style>
+</head>
+
+<body>
+<div id="wrapper">
+    <div id="title">Primaries</div>
+
+<div id="app"></div>
+</div>
+<!-- Classic Bostock-style state tile layout -->
+<script id="grid" type="text/plain">
+                              ME
+               WI          VT NH
+WA ID MT ND MN IL MI    NY MA
+OR NV WY SD IA IN OH PA NJ CT RI
+CA UT CO NE MO KY WV VA MD DE
+   AZ NM KS AR TN NC SC
+         OK LA MS AL GA
+HI AK    TX             FL
+</script>
+
+<script>
+/* =========================================================
+   CONFIG (EDIT ONLY THIS)
+========================================================= */
+const CONFIG = {
+  // overall layout
+  numMaps: 6,
+  columns: 3,
+
+  // tile geometry
+  tileSize: 20,        // square size in px (inside each map)
+  tileGapFactor: 1.2, // spacing between state tiles (1.0 = tight)
+  cornerRadiusFactor: 0,
+
+  // colors
+  normalFill: "#B0B0B0",
+  highlightFill: "#ED1C24",
+  stroke: "rgba(0,0,0,.18)",
+  strokeWidth: 1,
+
+
+  // per-map settings (length should be >= numMaps; extra ignored)
+  maps: [
+    { title: "March", highlights: ["TX","NC","AR"] },
+    { title: "April", highlights: ["CA","NY","IL","NJ","MA"] },
+    { title: "May", highlights: ["WA","OR","CA","NV","AZ"] },
+    { title: "June", highlights: ["MI","WI","MN","PA","OH"] },
+    { title: "July", highlights: ["CO","NM","UT","ID","MT"] },
+    { title: "August", highlights: ["FL","GA","SC","NC","VA"] }
+  ]
+};
+/* ======================================================= */
+
+function parseStateGridText(gridText){
+  const states = [];
+  gridText.split("\n").forEach((line, i) => {
+    const re = /\w+/g;
+    let m;
+    while ((m = re.exec(line))) {
+      states.push({ name: m[0], x: m.index / 3, y: i });
+    }
+  });
+  return states;
+}
+
+function sanitizeAbbrList(arr){
+  if (!arr) return [];
+  return arr
+    .map(s => String(s).toUpperCase().trim())
+    .filter(Boolean)
+    .filter(s => s.length === 2);
+}
+
+const GRID_STATES = parseStateGridText(document.getElementById("grid").textContent);
+
+function build(){
+  const numMaps = Math.max(1, Math.min(24, Math.round(CONFIG.numMaps || 1)));
+  const cols = Math.max(1, Math.min(8, Math.round(CONFIG.columns || 1)));
+
+  // normalize per-map configs
+  const models = Array.from({length: numMaps}, (_, i) => {
+    const src = CONFIG.maps && CONFIG.maps[i] ? CONFIG.maps[i] : {};
+    return {
+      title: src.title ?? `Map ${i+1}`,
+      highlights: new Set(sanitizeAbbrList(src.highlights))
+    };
+  });
+
+  // grid container
+  const app = d3.select("#app").html("");
+  app.append("div")
+    .attr("class", "grid")
+    .style("grid-template-columns", `repeat(${cols}, minmax(0, 1fr))`)
+    .each(function(){
+      const grid = d3.select(this);
+
+      const cards = grid.selectAll(".card")
+        .data(models)
+        .enter()
+        .append("div")
+        .attr("class", "card");
+
+    //   cards.append("div")
+    //     .attr("class", "title")
+    //     .text(d => d.title);
+
+      cards.append("div")
+        .attr("class", "mapHost")
+        .each(function(d, i){
+          drawMap(this, d, i, d.title);
+        });
+    });
+}
+
+function drawMap(hostEl, model, index,title){
+  const tileSize = clampInt(CONFIG.tileSize, 16, 60);
+  const cellSize = Math.round(tileSize * (Number(CONFIG.tileGapFactor) || 1.12));
+  const tileW = tileSize;
+  const tileH = tileSize;
+
+  const gridWidth = d3.max(GRID_STATES, d => d.x) + 1;
+  const gridHeight = d3.max(GRID_STATES, d => d.y) + 1;
+
+  const w = Math.round(gridWidth * cellSize + cellSize);
+  const h = Math.round(gridHeight * cellSize + cellSize);
+
+  const rx = 0//Math.max(0, Math.round(tileSize * (Number(CONFIG.cornerRadiusFactor) || 0)));
+  const normalFill = CONFIG.normalFill || "#3995B2";
+  const highlightFill = CONFIG.highlightFill || "#FFCF01";
+
+  const svg = d3.select(hostEl)
+    .append("svg")
+    .attr("viewBox", `0 0 ${w} ${h}`);
+    const inChartTitle = svg.append("text").text(title)
+    .attr('x',0).attr('y',30).attr("class","chartTitle")
+
+  const g = svg.append("g")
+    .attr("transform", `translate(${w/2},${h/2})`);
+
+  const state = g.selectAll(".state")
+    .data(GRID_STATES)
+    .enter()
+    .append("g")
+    .attr("class", "state")
+    .attr("transform", d =>
+      `translate(${(d.x - gridWidth/2) * cellSize}, ${(d.y - gridHeight/2) * cellSize})`
+    );
+
+  state.append("rect")
+    .attr("x", -tileW/2)
+    .attr("y", -tileH/2)
+    .attr("width", tileW)
+    .attr("height", tileH)
+    .attr("rx", rx)
+    .attr("ry", rx)
+    .attr("stroke", CONFIG.stroke || "rgba(0,0,0,.18)")
+    .attr("stroke-width", Number(CONFIG.strokeWidth ?? 1))
+    .attr("fill", d => model.highlights.has(d.name) ? highlightFill : normalFill);
+
+  state.append("text")
+    .attr("dy", ".35em")
+    .text(d => d.name);
+}
+
+function clampInt(n, min, max){
+  n = Math.round(Number(n));
+  if (!Number.isFinite(n)) n = min;
+  return Math.max(min, Math.min(max, n));
+}
+
+build();
+</script>
+</body>
+</html>

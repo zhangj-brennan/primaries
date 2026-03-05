@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Primary → Runoff Timeline (Days Until)</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+  @font-face { font-family: "Benton"; src: url("Benton Sans/Benton Sans Book.otf"); }
+  @font-face { font-family: "BentonStrong"; src: url("Benton Sans/Benton Sans Bold.otf"); }
+  @font-face { font-family: "BentonMedium"; src: url("Benton Sans/Benton Sans Medium.otf"); }
+
+  body{
+    margin:0;
+    padding:18px;
+    font-family: "Benton", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color:#111;
+    background:#fff;
+  }
+
+  .topbar{
+    display:flex;
+    gap:12px;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    margin-bottom: 10px;
+    max-width: 1200px;
+  }
+
+  .titlewrap{ flex: 1; min-width: 260px; }
+  .title{
+    border-top:3px solid black;
+    padding-top:20px;
+    font-family:"BentonStrong", system-ui, sans-serif;
+    font-size:18px;
+    margin:0 0 6px;
+    letter-spacing:.2px;
+  }
+  .subtitle{
+    font-size:12px;
+    color:#000;
+    margin:0;
+  }
+
+  .toggleBtn{
+    margin-top:20px;
+    position:absolute;
+    border: 2px solid #000;
+    background:#fff;
+    padding: 4px 6px;
+    cursor:pointer;
+    font-family:"BentonStrong", system-ui, sans-serif;
+    font-size: 12px;
+    letter-spacing: .2px;
+    white-space: nowrap;
+  }
+  .toggleBtn:active{ transform: translateY(1px); }
+#chart{position:absolute;top:120px;}
+  svg{ display:block; max-width: 1200px; }
+
+  .axis text{ font-size:11px; fill:#000; }
+  .axis path, .axis line{ stroke:#FFF; }
+
+  .stateLabel{
+    font-family:"BentonStrong", system-ui, sans-serif;
+    font-size:11px;
+    fill:#111;
+  }
+
+  .bar{ fill:#B0B0B0; opacity:0.95; }
+  .bar.missing{ opacity:0.45; }
+
+  .primaryTick{ stroke:#767c7d; stroke-width:2; }
+
+  .todayLine{ stroke:#ED1C24; stroke-width:2; }
+  .todayLabel{
+    font-family:"BentonStrong", system-ui, sans-serif;
+    font-size:11px;
+    fill:#ED1C24;
+  }
+
+  .grid line{ stroke:#eee; }
+  .grid path{ stroke:none; }
+
+ .tooltip{
+  position:absolute;
+  left:0;
+  top:0;
+  pointer-events:none;
+  background:#fff;
+  border:2px solid #000;
+  padding:8px 10px;
+  font-size:12px;
+  /* box-shadow:0 6px 18px rgba(0,0,0,.08); */
+  opacity:0;
+  transform: translate(-9999px, -9999px);
+  max-width: 280px;
+}
+  .tooltip b{ font-family:"BentonStrong", system-ui, sans-serif; }
+</style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="titlewrap">
+      <div class="title" id="pageTitle">Primary → Runoff timeline</div>
+      <p class="subtitle" id="pageSubtitle"></p>
+    <button class="toggleBtn" id="toggleBtn">SHOW KEY STATES</button>
+    </div>
+  </div>
+
+  <div id="chart"></div>
+  <div class="tooltip" id="tip"></div>
+
+<script>
+/* =========================================================
+   CONFIG
+========================================================= */
+const CONFIG = {
+  csvPath: "midterm election 2026 general - primary_date.csv",   // CSV headers: State, Primary Date, Runoff Date
+  dateFormat: "MDY",            // "MDY" (3/1/2026) or "ISO" (2026-03-01)
+
+  width: 800,
+  margin: { top: 30, right: 30, bottom: 40, left: 100 },
+  rowHeight: 12,
+  rowGap: 6,
+
+  sortBy: "primary",            // "primary" or "alpha"
+
+  // Toggle behavior:
+  startWith: "key",             // "all" or "key"
+  keyStates: ["Texas","North Carolina","Georgia","Arizona",
+  "Missouri","New York","New Mexico"] 
+};
+/* ======================================================= */
+
+const parseMDY = d3.timeParse("%m/%d/%Y");
+const parseISO = d3.timeParse("%Y-%m-%d");
+
+function parseDate(s){
+  if (s == null) return null;
+  const t = String(s).trim();
+  if (!t) return null;
+
+  let d = null;
+  if (CONFIG.dateFormat === "ISO") d = parseISO(t) || parseMDY(t);
+  else d = parseMDY(t) || parseISO(t);
+
+  if (!d) {
+    const tmp = new Date(t);
+    if (!isNaN(tmp)) d = tmp;
+  }
+  return d && !isNaN(d) ? d : null;
+}
+
+function fmtDate(d){
+  return d ? d.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" }) : "—";
+}
+
+function daysDiff(a, b){
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor((b - a) / oneDay);
+}
+
+function normalizeKeySet(keyStates){
+  // accept abbreviations or full names (case-insensitive)
+  const set = new Set();
+  (keyStates || []).forEach(s => {
+    const t = String(s).trim();
+    if (!t) return;
+    set.add(t.toUpperCase());
+  });
+  return set;
+}
+
+const keySet = normalizeKeySet(CONFIG.keyStates);
+
+const today = new Date();
+today.setHours(0,0,0,0);
+
+d3.select("#pageSubtitle").text(
+  `Today: ${fmtDate(today)} • Bars run from Primary Date to Runoff Date (or Primary if no runoff).`
+);
+
+const tip = d3.select("#tip");
+
+let ALL_DATA = [];
+let showing = (CONFIG.startWith === "key") ? "key" : "all";
+
+const toggleBtn = document.getElementById("toggleBtn");
+function updateToggleLabel(){
+  toggleBtn.textContent = (showing === "all") ? "SHOW KEY STATES" : "SHOW ALL STATES";
+}
+
+toggleBtn.addEventListener("click", () => {
+  showing = (showing === "all") ? "key" : "all";
+  updateToggleLabel();
+  render();
+});
+
+updateToggleLabel();
+
+d3.csv(CONFIG.csvPath).then(raw => {
+  // Normalize
+  ALL_DATA = raw.map(d => {
+    const state = (d.State ?? d.state ?? "").trim();
+    const primary = parseDate(d["Primary Date"]);
+    const runoff = parseDate(d["Runoff Date"]);
+    const end = runoff || primary;
+
+    let start = primary;
+    let finish = end;
+    if (start && finish && finish < start) {
+      const tmp = start; start = finish; finish = tmp;
+    }
+
+    return { state, primary: start, runoff, end: finish };
+  }).filter(d => d.state && d.primary);
+
+  render();
+}).catch(err => {
+  console.error(err);
+  d3.select("#chart").html(
+    `<div style="color:#000;font-family:system-ui">Failed to load CSV: ${CONFIG.csvPath}</div>`
+  );
+});
+
+function render(){
+  // Filter based on toggle
+  let data = ALL_DATA.slice();
+
+  if (showing === "key") {
+    data = data.filter(d => {
+      const upper = d.state.toUpperCase();
+      // match either exact full state name OR exact 2-letter abbr if your CSV uses abbr
+      return keySet.has(upper) || keySet.has(upper.slice(0,2));
+    });
+  }
+
+  // Sort
+  if (CONFIG.sortBy === "alpha") data.sort((a,b) => d3.ascending(a.state, b.state));
+  else data.sort((a,b) => d3.ascending(a.primary, b.primary));
+
+  // Domain
+  const minDate = d3.min(data, d => d.primary);
+  const maxDate = d3.max(data, d => d.end || d.primary);
+
+  const padDays = 10;
+  const domain0 = d3.timeDay.offset(minDate, -padDays);
+  const domain1 = d3.timeDay.offset(maxDate, +padDays);
+
+  // Size
+  const height = CONFIG.margin.top + CONFIG.margin.bottom
+    + data.length * (CONFIG.rowHeight + CONFIG.rowGap);
+
+  const svg = d3.select("#chart")
+    .html("")
+    .append("svg")
+    .attr("width", CONFIG.width)
+    .attr("height", height);
+
+  const innerW = CONFIG.width - CONFIG.margin.left - CONFIG.margin.right;
+  const innerH = height - CONFIG.margin.top - CONFIG.margin.bottom;
+
+  const g = svg.append("g")
+    .attr("transform", `translate(${CONFIG.margin.left},${CONFIG.margin.top})`);
+
+  const x = d3.scaleTime().domain([domain0, domain1]).range([0, innerW]);
+  const y = d3.scaleBand().domain(data.map(d => d.state)).range([0, innerH]).paddingInner(0.25);
+
+  // Grid
+  g.append("g")
+    .attr("class","grid")
+    .call(d3.axisTop(x)
+      .ticks(d3.timeMonth.every(1))
+      .tickSize(-innerH)
+      .tickFormat("")
+    );
+
+  // X axis bottom (months)
+  g.append("g")
+    .attr("class","axis")
+    .attr("transform", `translate(0,${innerH})`)
+    .call(d3.axisBottom(x)
+      .ticks(d3.timeMonth.every(1))
+      .tickFormat(d3.timeFormat("%b"))
+    );
+
+  // Y labels
+  g.append("g")
+    .attr("class","axis")
+    .call(d3.axisLeft(y).tickSize(0))
+    .selectAll("text")
+    .attr("class","stateLabel");
+
+  // Bars
+  const row = g.append("g")
+    .selectAll("g.row")
+    .data(data)
+    .enter()
+    .append("g")
+    .attr("class","row")
+    .attr("transform", d => `translate(0,${y(d.state)})`);
+
+  row.append("rect")
+    .attr("class", d => "bar" + (d.runoff ? "" : " missing"))
+    .attr("x", d => x(d.primary))
+    .attr("y", (y.bandwidth() - CONFIG.rowHeight)/2)
+    .attr("width", d => Math.max(2, x(d.end) - x(d.primary)))
+    .attr("height", CONFIG.rowHeight)
+   .on("mousemove", (event, d) => {
+
+
+  const daysToPrimary = daysDiff(today, d.primary);
+  const daysToRunoff  = d.runoff ? daysDiff(today, d.runoff) : null;
+
+  const primaryText = (daysToPrimary >= 0)
+    ? `${daysToPrimary} day${daysToPrimary === 1 ? "" : "s"} left`
+    : `${Math.abs(daysToPrimary)} day${Math.abs(daysToPrimary) === 1 ? "" : "s"} ago`;
+
+  const runoffText = (daysToRunoff == null)
+    ? "—"
+    : (daysToRunoff >= 0)
+      ? `${daysToRunoff} day${daysToRunoff === 1 ? "" : "s"} left`
+      : `${Math.abs(daysToRunoff)} day${Math.abs(daysToRunoff) === 1 ? "" : "s"} ago`;
+
+  tip
+    .style("opacity", 1)
+    .style("transform", `translate(${event.pageX + 12}px, ${event.pageY + 12}px)`)
+    .html(`
+      <b>${d.state}</b><br/>
+      Primary: ${fmtDate(d.primary)} <span style="color:#666">(${primaryText})</span><br/>
+      Runoff: ${fmtDate(d.runoff)} <span style="color:#666">(${runoffText})</span>
+    `);
+})
+    .on("mouseleave", () => {
+      tip.style("opacity", 0).style("transform", "translate(-9999px,-9999px)");
+    });
+
+  // Primary tick
+  row.append("line")
+    .attr("class","primaryTick")
+    .attr("x1", d => x(d.primary))
+    .attr("x2", d => x(d.primary))
+    .attr("y1", (y.bandwidth() - CONFIG.rowHeight)/2)
+    .attr("y2", (y.bandwidth() - CONFIG.rowHeight)/2 + CONFIG.rowHeight);
+
+  // Today marker
+  const todayX = x(today);
+  g.append("line")
+    .attr("class","todayLine")
+    .attr("x1", todayX)
+    .attr("x2", todayX)
+    .attr("y1", 0)
+    .attr("y2", innerH);
+
+  g.append("text")
+    .attr("class","todayLabel")
+    .attr("x", todayX + 2)
+    .attr("y", -2)
+    .attr("text-anchor","middle")
+    .text("TODAY");
+}
+</script>
+</body>
+</html>

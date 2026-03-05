@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2026 Calendar Grid (Mar–Dec)</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+  @font-face { font-family: "Benton"; src: url("Benton Sans/Benton Sans Book.otf"); }
+  @font-face { font-family: "BentonStrong"; src: url("Benton Sans/Benton Sans Bold.otf"); }
+  @font-face { font-family: "BentonMedium"; src: url("Benton Sans/Benton Sans Medium.otf"); }
+
+  body{
+    margin: 0;
+    padding: 16px;
+    background: #fff;
+    color: #111;
+    font-family: "Benton", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .wrap{
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .grid{
+    display: grid;
+    gap: 14px;
+  }
+
+  .month{
+    padding: 1px;
+  }
+
+  .monthTitle{
+    font-family: "BentonStrong", system-ui, sans-serif;
+    font-size: 14px;
+    margin: 0 0 8px;
+    letter-spacing: .2px;
+  }
+
+  svg{ display:block; width:100%; height:auto; }
+
+  .dow{
+    font-family: "BentonStrong";
+    font-size: 10px;
+    fill: #666;
+  }
+
+  .dayNum{
+    font-family: "BentonStrong";
+    font-size: 10px;
+    fill: #000;
+    pointer-events: none;
+  }
+
+  /* .cell{
+    shape-rendering: crispEdges;
+  } */
+
+  /* base cell */
+  .cellRect{
+    fill: #DBDADA;
+  }
+
+  /* category fills */
+  .catA .cellRect{ fill: #FFCF01; stroke: #d6b000; }
+  .catB .cellRect{ fill: #3995B2; stroke: #2c7c95; }
+  .both .cellRect{
+    fill: #ED1C24; /* overlap */
+    stroke: #b10f14;
+  }
+
+  /* weekend subtle cue (optional) */
+  .weekend .cellRect{
+    /* keep same by default; uncomment to tint weekends */
+    /* fill: #f2f2f2; */
+  }
+
+  /* out-of-month days */
+  .outside .cellRect{
+    fill: transparent;
+    stroke: transparent;
+  }
+  .outside .dayNum{ fill: transparent; }
+
+  /* legend */
+  .legend{
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin: 0 0 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+  }
+  .swatch{
+    display:inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 6px;
+    vertical-align: -2px;
+  }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div id="legend" class="legend"></div>
+  <div id="months" class="grid"></div>
+
+</div>
+
+<script>
+/* =========================================================
+   CONFIG (edit only this)
+========================================================= */
+const CONFIG = {
+  startMonth: 2,  // 0=Jan ... 2=Mar
+  endMonth: 11,   // 11=Dec
+  year: 2026,
+
+  // grid layout of months
+  monthColumns: 4,
+
+  // cell sizing inside each month
+  cellSize: 20,     // day square size
+  cellGap: 3,       // spacing between squares
+  headerHeight: 16, // row for day-of-week labels
+
+  // labels + colors (must match CSS classes catA/catB/both unless you change CSS too)
+  catA: { label: "Key dates for a vote on issue 1", color: "#FFCF01" },
+  catB: { label: "Key dates for a 2nd thing", color: "#3995B2" },
+  both:{ label: "Both",   color: "#ED1C24" },
+
+  // Highlight lists (ISO dates)
+  highlightA: [
+    "2026-03-03","2026-03-17","2026-04-07",
+    "2026-06-02","2026-09-15","2026-11-03",
+        "2026-03-23","2026-03-07","2026-08-17",
+
+  ],
+  highlightB: [
+    "2026-03-10","2026-04-21","2026-07-04",
+    "2026-10-05","2026-11-03","2026-12-01"
+  ],
+
+  // Optional ranges (inclusive), ISO strings
+  // rangesA: [{start:"2026-05-01", end:"2026-05-07"}],
+  // rangesB: [{start:"2026-08-15", end:"2026-08-20"}],
+  rangesA: [],
+  rangesB: []
+};
+/* ======================================================= */
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DOW = ["S","M","T","W","T","F","S"]; // Sun-first
+
+function pad2(n){ return String(n).padStart(2,"0"); }
+function isoDate(d){
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function parseISO(s){
+  const [Y,M,D] = s.split("-").map(Number);
+  return new Date(Y, M-1, D);
+}
+function expandRanges(ranges){
+  const out = new Set();
+  (ranges || []).forEach(r => {
+    const start = parseISO(r.start);
+    const end = parseISO(r.end);
+    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate()+1)){
+      out.add(isoDate(dt));
+    }
+  });
+  return out;
+}
+
+// Build highlight sets
+const setA = new Set(CONFIG.highlightA || []);
+const setB = new Set(CONFIG.highlightB || []);
+const rangeA = expandRanges(CONFIG.rangesA);
+const rangeB = expandRanges(CONFIG.rangesB);
+rangeA.forEach(d => setA.add(d));
+rangeB.forEach(d => setB.add(d));
+
+// Legend
+d3.select("#legend").html(`
+  <span><span class="swatch" style="background:${CONFIG.catA.color}"></span>${CONFIG.catA.label}</span>
+  <span><span class="swatch" style="background:${CONFIG.catB.color}"></span>${CONFIG.catB.label}</span>
+  <span><span class="swatch" style="background:${CONFIG.both.color}"></span>${CONFIG.both.label}</span>
+`);
+
+function buildMonths(){
+  const cols = Math.max(1, Math.min(6, Math.round(CONFIG.monthColumns || 4)));
+  d3.select("#months")
+    .style("grid-template-columns", `repeat(${cols}, minmax(0, 1fr))`)
+    .html("");
+
+  for (let m = CONFIG.startMonth; m <= CONFIG.endMonth; m++){
+    drawMonth(CONFIG.year, m);
+  }
+}
+
+function drawMonth(year, monthIndex){
+  const cell = Math.max(14, Math.round(CONFIG.cellSize || 20));
+  const gap = Math.max(0, Math.round(CONFIG.cellGap || 3));
+  const headerH = Math.max(0, Math.round(CONFIG.headerHeight || 16));
+
+  const first = new Date(year, monthIndex, 1);
+  const last = new Date(year, monthIndex+1, 0);
+
+  // Calendar grid needs the Sunday before (or same day) as the 1st
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay()); // Sun=0
+
+  // And runs through the Saturday after (or same) as last day
+  const end = new Date(last);
+  end.setDate(last.getDate() + (6 - last.getDay()));
+
+  // Build day objects
+  const days = [];
+  for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate()+1)){
+    const d = new Date(dt);
+    const inMonth = d.getMonth() === monthIndex;
+    const iso = isoDate(d);
+    const a = setA.has(iso);
+    const b = setB.has(iso);
+
+    days.push({
+      date: d,
+      iso,
+      day: d.getDate(),
+      dow: d.getDay(),
+      week: Math.floor((d - start) / (1000*60*60*24*7)),
+      inMonth,
+      a, b
+    });
+  }
+
+  const weeks = d3.max(days, d => d.week) + 1;
+  const w = 7 * (cell + gap) - gap;
+  const h = headerH + weeks * (cell + gap) - gap;
+
+  const monthDiv = d3.select("#months")
+    .append("div")
+    .attr("class","month");
+
+  monthDiv.append("div")
+    .attr("class","monthTitle")
+    .text(`${MONTH_NAMES[monthIndex]}`);
+
+  const svg = monthDiv.append("svg")
+    .attr("viewBox", `0 0 ${w} ${h}`);
+
+  // DOW header
+  svg.append("g")
+    .selectAll("text")
+    .data(DOW)
+    .enter()
+    .append("text")
+    .attr("class","dow")
+    .attr("x", (d,i) => i*(cell+gap) + cell/2)
+    .attr("y", 11)
+    .attr("text-anchor","middle")
+    .text(d => d);
+
+  const g = svg.append("g").attr("transform", `translate(0,${headerH})`);
+
+  const dayG = g.selectAll(".cell")
+    .data(days)
+    .enter()
+    .append("g")
+    .attr("class", d => {
+      let c = "cell";
+      if (!d.inMonth) c += " outside";
+      if (d.dow === 0 || d.dow === 6) c += " weekend";
+      if (d.a && d.b) c += " both";
+      else if (d.a) c += " catA";
+      else if (d.b) c += " catB";
+      return c;
+    })
+    .attr("transform", d => `translate(${d.dow*(cell+gap)},${d.week*(cell+gap)})`);
+
+  dayG.append("rect")
+    .attr("class","cellRect")
+    .attr("width", cell)
+    .attr("height", cell);
+
+  dayG.append("text")
+  .attr("class","dayNum")
+  .attr("x", cell/2)
+  .attr("y", cell/2 + 3)
+  .attr("text-anchor","middle")
+  .text(d => (d.a || d.b) ? d.day : "");
+}
+
+buildMonths();
+</script>
+</body>
+</html>
