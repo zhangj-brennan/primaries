@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>State Tile Cartograms</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+*{box-sizing:border-box;}
+
+body{
+  margin:0;
+  padding:16px;
+  font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+#wrapper{
+  max-width:1400px;
+  margin:auto;
+}
+
+#title{
+  font-size:22px;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+#toolbar{
+  margin-bottom:10px;
+}
+
+button{
+  padding:8px 12px;
+  border:1px solid #111;
+  background:#111;
+  color:#fff;
+  cursor:pointer;
+}
+
+#exportPanel{
+  margin:10px 0;
+}
+
+textarea{
+  width:100%;
+  height:120px;
+  font-family:monospace;
+}
+
+.grid{
+  display:grid;
+  gap:14px;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+}
+
+.card{padding:6px;}
+
+svg{width:100%;height:auto;}
+
+.state text{
+  text-anchor:middle;
+  font-size:11px;
+  fill:#fff;
+}
+
+.mapRow{
+  display:grid;
+  grid-template-columns:80px 1fr 1fr;
+  gap:6px;
+  margin-bottom:6px;
+}
+
+@media(max-width:700px){
+  .mapRow{grid-template-columns:1fr;}
+}
+</style>
+</head>
+
+<body>
+<div id="wrapper">
+
+<div id="title">Primaries</div>
+
+<div id="toolbar">
+  <button id="exportBtn">Export iframe</button>
+</div>
+
+<div id="exportPanel" style="display:none;">
+  <div>Embed (srcdoc):</div>
+  <textarea id="exportBox"></textarea>
+</div>
+
+<div id="controls"></div>
+<div id="app"></div>
+
+</div>
+
+<script id="grid" type="text/plain">
+                              ME
+               WI          VT NH
+WA ID MT ND MN IL MI    NY MA
+OR NV WY SD IA IN OH PA NJ CT RI
+CA UT CO NE MO KY WV VA MD DE
+   AZ NM KS AR TN NC SC
+         OK LA MS AL GA
+HI AK    TX             FL
+</script>
+
+<script>
+const CONFIG = {
+  numMaps: 6,
+  tileSize: 20,
+  tileGapFactor: 1.2,
+  normalFill: "#B0B0B0",
+  highlightFill: "#ED1C24",
+
+  maps: [
+    {title:"March", highlights:["TX","NC","AR"]},
+    {title:"April", highlights:["CA","NY","IL","NJ","MA"]},
+    {title:"May", highlights:["WA","OR","CA","NV","AZ"]},
+    {title:"June", highlights:["MI","WI","MN","PA","OH"]},
+    {title:"July", highlights:["CO","NM","UT","ID","MT"]},
+    {title:"August", highlights:["FL","GA","SC","NC","VA"]}
+  ]
+};
+
+function parseGrid(t){
+  const s=[];
+  t.split("\n").forEach((l,i)=>{
+    const r=/\w+/g; let m;
+    while(m=r.exec(l)) s.push({name:m[0],x:m.index/3,y:i});
+  });
+  return s;
+}
+
+const STATES = parseGrid(document.getElementById("grid").textContent);
+
+function sanitize(arr){
+  return (arr||[]).map(d=>d.toUpperCase().trim()).filter(d=>d.length===2);
+}
+
+function build(){
+
+  const app = d3.select("#app").html("");
+
+  const grid = app.append("div").attr("class","grid");
+
+  const cards = grid.selectAll(".card")
+    .data(CONFIG.maps)
+    .enter()
+    .append("div")
+    .attr("class","card");
+
+  cards.each(function(d){
+    draw(this,d);
+  });
+}
+
+function draw(el,model){
+
+  const size = CONFIG.tileSize;
+  const cell = size * CONFIG.tileGapFactor;
+
+  const w = 12 * cell;
+  const h = 8 * cell;
+
+  const svg = d3.select(el).append("svg")
+    .attr("viewBox",`0 0 ${w} ${h}`);
+
+  svg.append("text")
+    .text(model.title)
+    .attr("y",18)
+    .attr("font-weight","700");
+
+  const g = svg.append("g").attr("transform","translate(40,30)");
+
+  const set = new Set(sanitize(model.highlights));
+
+  const s = g.selectAll("g")
+    .data(STATES)
+    .enter()
+    .append("g")
+    .attr("transform",d=>`translate(${d.x*cell},${d.y*cell})`);
+
+  s.append("rect")
+    .attr("width",size)
+    .attr("height",size)
+    .attr("fill",d=>set.has(d.name)?CONFIG.highlightFill:CONFIG.normalFill);
+
+  s.append("text")
+    .attr("x",size/2)
+    .attr("y",size/2+4)
+    .text(d=>d.name);
+}
+
+function renderControls(){
+
+  const c = d3.select("#controls").html("");
+
+  CONFIG.maps.forEach((m,i)=>{
+
+    const row = c.append("div").attr("class","mapRow");
+
+    row.append("div").text("Map "+(i+1));
+
+    row.append("input")
+      .property("value",m.title)
+      .on("input",function(){
+        m.title=this.value;
+        build();
+      });
+
+    row.append("input")
+      .property("value",m.highlights.join(", "))
+      .on("input",function(){
+        m.highlights=this.value.split(",").map(d=>d.trim());
+        build();
+      });
+
+  });
+}
+
+function exportHTML(){
+
+  const html = `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v7.min.js"><\/script>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const CONFIG = ${JSON.stringify(CONFIG)};
+const GRID = \`${document.getElementById("grid").textContent}\`;
+
+function parse(t){
+ const s=[];
+ t.split("\\n").forEach((l,i)=>{
+  const r=/\\w+/g; let m;
+  while(m=r.exec(l)) s.push({name:m[0],x:m.index/3,y:i});
+ });
+ return s;
+}
+
+const STATES=parse(GRID);
+
+function build(){
+ const app=d3.select("#app").html("");
+ const grid=app.append("div");
+
+ CONFIG.maps.forEach(m=>{
+  const svg=grid.append("svg").attr("width",250).attr("height",180);
+
+  const set=new Set(m.highlights);
+
+  const g=svg.append("g").attr("transform","translate(20,20)");
+
+  STATES.forEach(d=>{
+    const x=d.x*20;
+    const y=d.y*20;
+
+    g.append("rect")
+      .attr("x",x)
+      .attr("y",y)
+      .attr("width",16)
+      .attr("height",16)
+      .attr("fill",set.has(d.name)?"red":"#ccc");
+
+    g.append("text")
+      .attr("x",x+8)
+      .attr("y",y+12)
+      .attr("font-size",8)
+      .attr("text-anchor","middle")
+      .text(d.name);
+  });
+ });
+}
+
+build();
+<\/script>
+</body>
+</html>
+`;
+
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("srcdoc", html);
+  iframe.setAttribute("width","100%");
+  iframe.setAttribute("height","900");
+
+  return iframe.outerHTML;
+}
+
+document.getElementById("exportBtn").onclick=()=>{
+  document.getElementById("exportPanel").style.display="block";
+  document.getElementById("exportBox").value = exportHTML();
+};
+
+renderControls();
+build();
+
+</script>
+</body>
+</html>
